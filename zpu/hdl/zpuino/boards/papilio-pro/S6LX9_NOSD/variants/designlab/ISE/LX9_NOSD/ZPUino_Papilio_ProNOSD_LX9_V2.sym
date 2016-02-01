@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<symbol version="7" name="ZPUino_Papilio_ProNOSD_LX9_V2">
+    <symboltype>BLOCK</symboltype>
+    <timestamp>2016-1-31T14:57:19</timestamp>
+    <pin polarity="Output" x="4416" y="-528" name="gpio_bus_out(200:0)" />
+    <pin polarity="Input" x="4416" y="-544" name="gpio_bus_in(200:0)" />
+    <pin polarity="Output" x="4416" y="-400" name="clk_96Mhz" />
+    <pin polarity="Output" x="4416" y="-368" name="clk_1Mhz" />
+    <pin polarity="Output" x="4416" y="-336" name="clk_osc_32Mhz" />
+    <pin polarity="Input" x="48" y="-784" name="ext_pins_in(100:0)" />
+    <pin polarity="Output" x="48" y="-752" name="ext_pins_out(100:0)" />
+    <pin polarity="BiDirectional" x="48" y="-720" name="ext_pins_inout(100:0)" />
+    <pin polarity="Input" x="224" y="-64" name="wishbone_slot_5_out(100:0)" />
+    <pin polarity="Output" x="208" y="-64" name="wishbone_slot_5_in(100:0)" />
+    <pin polarity="Output" x="656" y="-64" name="wishbone_slot_6_in(100:0)" />
+    <pin polarity="Input" x="672" y="-64" name="wishbone_slot_6_out(100:0)" />
+    <pin polarity="Output" x="1104" y="-64" name="wishbone_slot_8_in(100:0)" />
+    <pin polarity="Input" x="1120" y="-64" name="wishbone_slot_8_out(100:0)" />
+    <pin polarity="Output" x="1552" y="-64" name="wishbone_slot_9_in(100:0)" />
+    <pin polarity="Input" x="1568" y="-64" name="wishbone_slot_9_out(100:0)" />
+    <pin polarity="Output" x="2016" y="-64" name="wishbone_slot_10_in(100:0)" />
+    <pin polarity="Input" x="2032" y="-64" name="wishbone_slot_10_out(100:0)" />
+    <pin polarity="Output" x="2448" y="-64" name="wishbone_slot_11_in(100:0)" />
+    <pin polarity="Input" x="2464" y="-64" name="wishbone_slot_11_out(100:0)" />
+    <pin polarity="Output" x="2912" y="-64" name="wishbone_slot_12_in(100:0)" />
+    <pin polarity="Input" x="2928" y="-64" name="wishbone_slot_12_out(100:0)" />
+    <pin polarity="Output" x="3360" y="-64" name="wishbone_slot_13_in(100:0)" />
+    <pin polarity="Input" x="3376" y="-64" name="wishbone_slot_13_out(100:0)" />
+    <pin polarity="Output" x="3808" y="-64" name="wishbone_slot_14_in(100:0)" />
+    <pin polarity="Input" x="3824" y="-64" name="wishbone_slot_14_out(100:0)" />
+    <pin polarity="Input" x="3920" y="-64" name="wishbone_slot_video_in(100:0)" />
+    <pin polarity="Output" x="3936" y="-64" name="wishbone_slot_video_out(100:0)" />
+    <graph>
+        <line x2="4416" y1="-528" y2="-528" x1="4352" />
+        <line x2="4352" y1="-544" y2="-544" x1="4416" />
+        <rect width="248" x="4104" y="-576" height="76" />
+        <text style="fontsize:28;fontname:Arial" x="4164" y="-596">GPIO Pins</text>
+        <rect width="4240" x="112" y="-816" height="688" />
+        <line x2="4416" y1="-400" y2="-400" x1="4352" />
+        <line x2="4352" y1="-368" y2="-368" x1="4416" />
+        <rect width="176" x="4176" y="-428" height="124" />
+        <text style="fontsize:28;fontname:Arial" x="4240" y="-452">Clocks</text>
+        <line x2="4352" y1="-336" y2="-336" x1="4416" />
+        <text style="fontsize:40;fontname:Arial" x="2072" y="-676">Author: Alvaro Lopes</text>
+        <text style="fontsize:40;fontname:Arial" x="672" y="-648">Used Resources:</text>
+        <text style="fontsize:40;fontname:Arial" x="3208" y="-652">Free Resources</text>
+        <text style="fontsize:40;fontname:Arial" x="3244" y="-608">21 Block RAM (BRAM)</text>
+        <text style="fontsize:40;fontname:Arial" x="3244" y="-568">66% of Slices</text>
+        <text style="fontsize:40;fontname:Arial" x="3244" y="-528">1 PLL (clock)</text>
+        <text style="fontsize:40;fontname:Arial" x="3248" y="-488">2 DCM (clock)</text>
+        <text style="fontsize:40;fontname:Arial" x="2108" y="-632">alvie.com/zpuino</text>
+        <text style="fontsize:52;fontname:Arial" x="1876" y="-332">Visit Papilio.cc for Documentation</text>
+        <text style="fontsize:64;fontname:Arial" x="1532" y="-740">ZPUino Soft Processor - Papilio Pro - Vanilla - v2.0</text>
+        <text style="fontsize:40;fontname:Arial" x="2028" y="-468">(code runs out of BRAM)</text>
+        <text style="fontsize:48;fontname:Arial" x="3532" y="-364">System Clock runs at 96Mhz</text>
+        <line x2="112" y1="-784" y2="-784" x1="52" />
+        <line x2="112" y1="-752" y2="-752" x1="48" />
+        <rect width="360" x="112" y="-804" height="116" />
+        <text style="fontsize:28;fontname:Arial" x="200" y="-664">External Pins</text>
+        <line x2="224" y1="-64" y2="-128" x1="224" />
+        <line x2="208" y1="-64" y2="-128" x1="208" />
+        <line x2="656" y1="-64" y2="-128" x1="656" />
+        <line x2="672" y1="-64" y2="-128" x1="672" />
+        <line x2="1104" y1="-64" y2="-128" x1="1104" />
+        <line x2="1120" y1="-64" y2="-128" x1="1120" />
+        <line x2="1552" y1="-64" y2="-128" x1="1552" />
+        <line x2="1568" y1="-64" y2="-128" x1="1568" />
+        <line x2="2016" y1="-64" y2="-128" x1="2016" />
+        <line x2="2032" y1="-64" y2="-128" x1="2032" />
+        <line x2="2448" y1="-64" y2="-128" x1="2448" />
+        <line x2="2464" y1="-64" y2="-128" x1="2464" />
+        <line x2="2912" y1="-64" y2="-128" x1="2912" />
+        <line x2="2928" y1="-64" y2="-128" x1="2928" />
+        <line x2="3360" y1="-64" y2="-128" x1="3360" />
+        <line x2="3376" y1="-64" y2="-128" x1="3376" />
+        <line x2="3808" y1="-64" y2="-128" x1="3808" />
+        <line x2="3824" y1="-64" y2="-128" x1="3824" />
+        <text style="fontsize:32;fontname:Arial" x="144" y="-188">Wishbone</text>
+        <text style="fontsize:32;fontname:Arial" x="168" y="-160">Slot 5</text>
+        <rect width="172" x="128" y="-220" height="92" />
+        <text style="fontsize:32;fontname:Arial" x="592" y="-188">Wishbone</text>
+        <text style="fontsize:32;fontname:Arial" x="616" y="-160">Slot 6</text>
+        <rect width="172" x="576" y="-220" height="92" />
+        <text style="fontsize:32;fontname:Arial" x="1040" y="-188">Wishbone</text>
+        <text style="fontsize:32;fontname:Arial" x="1064" y="-160">Slot 8</text>
+        <rect width="172" x="1024" y="-220" height="92" />
+        <text style="fontsize:32;fontname:Arial" x="1488" y="-188">Wishbone</text>
+        <text style="fontsize:32;fontname:Arial" x="1512" y="-160">Slot 9</text>
+        <rect width="172" x="1472" y="-220" height="92" />
+        <text style="fontsize:32;fontname:Arial" x="1952" y="-188">Wishbone</text>
+        <text style="fontsize:32;fontname:Arial" x="1976" y="-160">Slot 10</text>
+        <rect width="172" x="1936" y="-220" height="92" />
+        <text style="fontsize:32;fontname:Arial" x="2384" y="-188">Wishbone</text>
+        <text style="fontsize:32;fontname:Arial" x="2408" y="-160">Slot 11</text>
+        <rect width="172" x="2368" y="-220" height="92" />
+        <text style="fontsize:32;fontname:Arial" x="2848" y="-188">Wishbone</text>
+        <text style="fontsize:32;fontname:Arial" x="2872" y="-160">Slot 12</text>
+        <rect width="172" x="2832" y="-220" height="92" />
+        <text style="fontsize:32;fontname:Arial" x="3296" y="-188">Wishbone</text>
+        <text style="fontsize:32;fontname:Arial" x="3320" y="-160">Slot 13</text>
+        <rect width="172" x="3280" y="-220" height="92" />
+        <text style="fontsize:32;fontname:Arial" x="3744" y="-188">Wishbone</text>
+        <text style="fontsize:32;fontname:Arial" x="3768" y="-160">Slot 14</text>
+        <rect width="240" x="3728" y="-220" height="92" />
+        <line x2="3920" y1="-64" y2="-128" x1="3920" />
+        <line x2="3936" y1="-64" y2="-128" x1="3936" />
+        <text style="fontsize:24;fontname:Arial" x="3772" y="-232">With VGA DMA</text>
+        <attrtext style="alignment:RIGHT;fontsize:24;fontname:Arial" attrname="PinName" x="4344" y="-400" type="pin clk_96Mhz" />
+        <attrtext style="fontsize:24;fontname:Arial" attrname="PinName" x="4248" y="-368" type="pin clk_1Mhz" />
+        <attrtext style="alignment:RIGHT;fontsize:24;fontname:Arial" attrname="PinName" x="4352" y="-336" type="pin clk_osc_32Mhz" />
+        <attrtext style="fontsize:28;fontname:Arial" attrname="PinName" x="124" y="-784" type="pin ext_pins_in(100:0)" />
+        <attrtext style="fontsize:28;fontname:Arial" attrname="PinName" x="124" y="-752" type="pin ext_pins_out(100:0)" />
+        <attrtext style="fontsize:28;fontname:Arial" attrname="PinName" x="124" y="-720" type="pin ext_pins_inout(100:0)" />
+        <attrtext style="fontsize:24;fontname:Arial" attrname="PinName" x="4140" y="-552" type="pin gpio_bus_in(200:0)" />
+        <attrtext style="alignment:RIGHT;fontsize:24;fontname:Arial" attrname="PinName" x="4344" y="-528" type="pin gpio_bus_out(200:0)" />
+        <line x2="112" y1="-720" y2="-720" x1="48" />
+    </graph>
+</symbol>
