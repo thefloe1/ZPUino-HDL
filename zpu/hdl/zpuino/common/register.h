@@ -7,12 +7,26 @@
 # include "board_papilio_one.h"
 #elif defined( __ZPUINO_PAPILIO_PLUS__ )
 # include "board_papilio_plus.h"
+#elif defined( __ZPUINO_PAPILIO_PRO__ )
+# include "board_papilio_pro.h"
+#elif defined( __ZPUINO_PAPILIO_DUO__ )
+# include "board_papilio_duo.h"
 #elif defined( __ZPUINO_NEXYS2__ )
 # include "board_nexys2.h"
 #elif defined( __ZPUINO_OHO_GODIL__ )
 # include "board_oho_godil.h"
 #elif defined( __ZPUINO_NEXYS3__ )
 # include "board_nexys3.h"
+#elif defined( __ZPUINO_XULA2__ )
+# include "board_xula2.h"
+#elif defined( __ZPUINO_EMS11__ )
+# include "board_ems11.h"
+#elif defined( __ZPUINO_PIPISTRELLO__ )
+# include "board_pipistrello.h"
+#elif defined( __ZPUINO_SATURN__ )
+# include "board_saturn.h"
+#elif defined( __ZPUINO_MIMASV2__ )
+# include "board_mimasv2.h"
 #else
 #  error Unknown board.
 # endif
@@ -29,11 +43,11 @@ typedef volatile unsigned int* register_t;
 
 #define REGISTER(SLOT, y) *(volatile unsigned int*)(SLOT + (y<<2))
 
-#define SPIBASE  IO_SLOT(0)
+#define SYSCTLBASE IO_SLOT(0)
+#define SPIBASE  IO_SLOT(4)
 #define UARTBASE IO_SLOT(1)
 #define GPIOBASE IO_SLOT(2)
 #define TIMERSBASE IO_SLOT(3)
-#define INTRBASE IO_SLOT(4)
 #define SIGMADELTABASE IO_SLOT(5)
 #define USERSPIBASE IO_SLOT(6)
 #define CRC16BASE IO_SLOT(7)
@@ -100,9 +114,9 @@ typedef volatile unsigned int* register_t;
 #define TMR1PWMHIGH(x) REGISTER(TIMERSBASE, 97+(4*x))
 #define TMR1PWMCTL(x) REGISTER(TIMERSBASE, 98+(4*x))
 
-#define INTRCTL  REGISTER(INTRBASE,0)
-#define INTRMASK  REGISTER(INTRBASE,1)
-#define INTRLEVEL  REGISTER(INTRBASE,2)
+#define INTRCTL  REGISTER(SYSCTLBASE,0)
+#define INTRMASK  REGISTER(SYSCTLBASE,1)
+#define INTRLEVEL  REGISTER(SYSCTLBASE,2)
 
 #define SIGMADELTACTL   REGISTER(SIGMADELTABASE,0)
 #define SIGMADELTADATA  REGISTER(SIGMADELTABASE,1)

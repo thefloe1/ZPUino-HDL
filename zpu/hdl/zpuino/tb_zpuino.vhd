@@ -41,6 +41,7 @@ use work.zpuino_config.all;
 use work.zpu_config.all;
 use work.zpupkg.all;
 use work.zpuinopkg.all;
+use work.wishbonepkg.all;
 
 entity tb_zpuino is
 end entity;
@@ -296,6 +297,31 @@ architecture behave of tb_zpuino is
   );
   end component tap;
 
+  component wb_rom_ram is
+  port (
+    ram_wb_clk_i:       in std_logic;
+    ram_wb_rst_i:       in std_logic;
+    ram_wb_ack_o:       out std_logic;
+    ram_wb_stall_o:     out std_logic;
+    ram_wb_dat_i:       in std_logic_vector(wordSize-1 downto 0);
+    ram_wb_dat_o:       out std_logic_vector(wordSize-1 downto 0);
+    ram_wb_adr_i:       in std_logic_vector(maxAddrBitIncIO downto 0);
+    ram_wb_cyc_i:       in std_logic;
+    ram_wb_stb_i:       in std_logic;
+    ram_wb_we_i:        in std_logic;
+
+    rom_wb_clk_i:       in std_logic;
+    rom_wb_rst_i:       in std_logic;
+    rom_wb_ack_o:       out std_logic;
+    rom_wb_dat_o:       out std_logic_vector(wordSize-1 downto 0);
+    rom_wb_adr_i:       in std_logic_vector(maxAddrBitIncIO downto 0);
+    rom_wb_cyc_i:       in std_logic;
+    rom_wb_stb_i:       in std_logic;
+    rom_wb_stall_o:     out std_logic;
+    rom_wb_cti_i:       in std_logic_vector(2 downto 0)
+  );
+  end component wb_rom_ram;
+
 
   -- I/O Signals
   signal slot_cyc:   slot_std_logic_type;
@@ -306,6 +332,7 @@ architecture behave of tb_zpuino is
   signal slot_address:  slot_address_type;
   signal slot_ack:   slot_std_logic_type;
   signal slot_interrupt: slot_std_logic_type;
+  signal slot_id:   slot_id_type;
 
   signal jtag_data_chain_out: std_logic_vector(98 downto 0);
   signal jtag_ctrl_chain_in: std_logic_vector(11 downto 0);
@@ -322,6 +349,32 @@ architecture behave of tb_zpuino is
 
   signal gpio_spp_data: std_logic_vector(zpuino_gpio_count-1 downto 0);
   signal gpio_spp_read: std_logic_vector(zpuino_gpio_count-1 downto 0);
+
+  signal ram_wb_ack_o:       std_logic;
+  signal ram_wb_dat_i:       std_logic_vector(wordSize-1 downto 0);
+  signal ram_wb_dat_o:       std_logic_vector(wordSize-1 downto 0);
+  signal ram_wb_adr_i:       std_logic_vector(maxAddrBitIncIO downto 0);
+  signal ram_wb_cyc_i:       std_logic;
+  signal ram_wb_stb_i:       std_logic;
+  signal ram_wb_we_i:        std_logic;
+  signal ram_wb_stall_o:     std_logic;
+
+  signal sram_wb_ack_o:       std_logic;
+  signal sram_wb_dat_i:       std_logic_vector(wordSize-1 downto 0);
+  signal sram_wb_dat_o:       std_logic_vector(wordSize-1 downto 0);
+  signal sram_wb_adr_i:       std_logic_vector(maxAddrBitIncIO downto 0);
+  signal sram_wb_cyc_i:       std_logic;
+  signal sram_wb_stb_i:       std_logic;
+  signal sram_wb_we_i:        std_logic;
+  signal sram_wb_stall_o:     std_logic;
+
+  signal rom_wb_ack_o:       std_logic;
+  signal rom_wb_dat_o:       std_logic_vector(wordSize-1 downto 0);
+  signal rom_wb_adr_i:       std_logic_vector(maxAddrBitIncIO downto 0);
+  signal rom_wb_cyc_i:       std_logic;
+  signal rom_wb_stb_i:       std_logic;
+  signal rom_wb_cti_i:       std_logic_vector(2 downto 0);
+  signal rom_wb_stall_o:     std_logic;
 
 begin
 
@@ -383,6 +436,7 @@ begin
       slot_address  => slot_address,
       slot_ack      => slot_ack,
       slot_interrupt=> slot_interrupt,
+      slot_id       => slot_id,
       dbg_reset     => dbg_reset,
 
       m_wb_dat_o    => open,
@@ -393,10 +447,93 @@ begin
       m_wb_stb_i    => '0',
       m_wb_ack_o    => open,
 
+      ram_wb_ack_i      => ram_wb_ack_o,
+      ram_wb_stall_i    => ram_wb_stall_o,
+      ram_wb_dat_o      => ram_wb_dat_i,
+      ram_wb_dat_i      => ram_wb_dat_o,
+      ram_wb_adr_o      => ram_wb_adr_i(maxAddrBit downto 0),
+      ram_wb_cyc_o      => ram_wb_cyc_i,
+      ram_wb_stb_o      => ram_wb_stb_i,
+      ram_wb_we_o       => ram_wb_we_i,
+
+      rom_wb_ack_i      => rom_wb_ack_o,
+      rom_wb_stall_i      => rom_wb_stall_o,
+      rom_wb_dat_i      => rom_wb_dat_o,
+      rom_wb_adr_o      => rom_wb_adr_i(maxAddrBit downto 0),
+      rom_wb_cyc_o      => rom_wb_cyc_i,
+      rom_wb_stb_o      => rom_wb_stb_i,
 
       jtag_ctrl_chain_in => (others => '0'),--jtag_ctrl_chain_in,
       jtag_data_chain_out => jtag_data_chain_out
     );
+
+  memarb: wbarb2_1
+  generic map (
+    ADDRESS_HIGH => maxAddrBit,
+    ADDRESS_LOW => 0
+  )
+  port map (
+    wb_clk_i      => wb_clk_i,
+	 	wb_rst_i      => wb_rst_i,
+
+    m0_wb_dat_o   => ram_wb_dat_o,
+    m0_wb_dat_i   => ram_wb_dat_i,
+    m0_wb_adr_i   => ram_wb_adr_i(maxAddrBit downto 0),
+    m0_wb_sel_i   => (others => '1'),
+    m0_wb_cti_i   => CTI_CYCLE_CLASSIC,
+    m0_wb_we_i    => ram_wb_we_i,
+    m0_wb_cyc_i   => ram_wb_cyc_i,
+    m0_wb_stb_i   => ram_wb_stb_i,
+    m0_wb_ack_o   => ram_wb_ack_o,
+    m0_wb_stall_o => ram_wb_stall_o,
+
+    m1_wb_dat_o   => rom_wb_dat_o,
+    m1_wb_dat_i   => (others => DontCareValue),
+    m1_wb_adr_i   => rom_wb_adr_i(maxAddrBit downto 0),
+    m1_wb_sel_i   => (others => '1'),
+    m1_wb_cti_i   => CTI_CYCLE_CLASSIC,
+    m1_wb_we_i    => '0',--rom_wb_we_i,
+    m1_wb_cyc_i   => rom_wb_cyc_i,
+    m1_wb_stb_i   => rom_wb_stb_i,
+    m1_wb_ack_o   => rom_wb_ack_o,
+    m1_wb_stall_o => rom_wb_stall_o,
+
+    s0_wb_dat_i   => sram_wb_dat_o,
+    s0_wb_dat_o   => sram_wb_dat_i,
+    s0_wb_adr_o   => sram_wb_adr_i(maxAddrBit downto 0),
+    s0_wb_sel_o   => open,
+    s0_wb_cti_o   => open,
+    s0_wb_we_o    => sram_wb_we_i,
+    s0_wb_cyc_o   => sram_wb_cyc_i,
+    s0_wb_stb_o   => sram_wb_stb_i,
+    s0_wb_ack_i   => sram_wb_ack_o,
+    s0_wb_stall_i => sram_wb_stall_o
+  );
+
+
+--  memory: wb_rom_ram
+--  port map (
+--    ram_wb_clk_i      => wb_clk_i,
+--    ram_wb_rst_i      => wb_rst_i,
+--    ram_wb_ack_o      => ram_wb_ack_o,
+--    ram_wb_dat_i      => ram_wb_dat_i,
+--    ram_wb_dat_o      => ram_wb_dat_o,
+--    ram_wb_adr_i      => ram_wb_adr_i,
+--    ram_wb_cyc_i      => ram_wb_cyc_i,
+--    ram_wb_stb_i      => ram_wb_stb_i,
+--    ram_wb_we_i       => ram_wb_we_i,
+--    ram_wb_stall_o    => ram_wb_stall_o,
+
+--    rom_wb_clk_i      => wb_clk_i,
+--    rom_wb_rst_i      => wb_rst_i,
+--    rom_wb_ack_o      => rom_wb_ack_o,
+--    rom_wb_dat_o      => rom_wb_dat_o,
+--    rom_wb_adr_i      => rom_wb_adr_i,
+--    rom_wb_cyc_i      => rom_wb_cyc_i,
+--   rom_wb_stb_i      => rom_wb_stb_i,
+--    rom_wb_cti_i      => rom_wb_cti_i,
+--    rom_wb_stall_o    => rom_wb_stall_o
+--  );
 
   dbgport: zpuino_debug_jtag
     port map (
@@ -512,19 +649,19 @@ begin
   -- IO SLOT 0
   --
 
-  slot0: zpuino_spi
+  slot4: zpuino_spi
   port map (
     wb_clk_i       => wb_clk_i,
 	 	wb_rst_i    => wb_rst_i,
-    wb_dat_o      => slot_read(0),
-    wb_dat_i     => slot_write(0),
-    wb_adr_i   => slot_address(0),
-    wb_we_i        => slot_we(0),
-    wb_cyc_i      => slot_cyc(0),
-    wb_stb_i      => slot_stb(0),
-    wb_ack_o      => slot_ack(0),
-    wb_inta_o => slot_interrupt(0),
-
+    wb_dat_o      => slot_read(4),
+    wb_dat_i     => slot_write(4),
+    wb_adr_i   => slot_address(4),
+    wb_we_i        => slot_we(4),
+    wb_cyc_i      => slot_cyc(4),
+    wb_stb_i      => slot_stb(4),
+    wb_ack_o      => slot_ack(4),
+    wb_inta_o => slot_interrupt(4),
+    id        => slot_id(4),
     mosi      => spi_pf_mosi,
     miso      => spi_pf_miso,
     sck       => spi_pf_sck,
@@ -546,8 +683,8 @@ begin
     wb_cyc_i       => slot_cyc(1),
     wb_stb_i       => slot_stb(1),
     wb_ack_o      => slot_ack(1),
-
     wb_inta_o => slot_interrupt(1),
+    id        => slot_id(1),
 
     enabled   => open,
     tx        => open,
@@ -573,7 +710,7 @@ begin
     wb_stb_i       => slot_stb(2),
     wb_ack_o      => slot_ack(2),
     wb_inta_o => slot_interrupt(2),
-
+    id        => slot_id(2),
     spp_data  => gpio_spp_data,
     spp_read  => gpio_spp_read,
 
@@ -609,10 +746,6 @@ begin
     );
 
   --
-  -- IO SLOT 4  - DO NOT USE (it's already mapped to Interrupt Controller)
-  --
-
-  --
   -- IO SLOT 5
   --
 
@@ -628,7 +761,7 @@ begin
     wb_stb_i        => slot_stb(5),
     wb_ack_o      => slot_ack(5),
     wb_inta_o => slot_interrupt(5),
-
+    id        => slot_id(5),
     spp_data  => open,
     spp_en    => open,
     sync_in   => '1'
@@ -650,7 +783,7 @@ begin
     wb_stb_i        => slot_stb(6),
     wb_ack_o      => slot_ack(6),
     wb_inta_o => slot_interrupt(6),
-
+    id        => slot_id(6),
     mosi      => spi2_mosi,
     miso      => spi2_miso,
     sck       => spi2_sck,
@@ -674,7 +807,8 @@ begin
     wb_cyc_i        => slot_cyc(7),
     wb_stb_i        => slot_stb(7),
     wb_ack_o      => slot_ack(7),
-    wb_inta_o => slot_interrupt(7)
+    wb_inta_o => slot_interrupt(7),
+    id        => slot_id(7)
   );
 
   --
@@ -692,7 +826,8 @@ begin
     wb_cyc_i      => slot_cyc(8),
     wb_stb_i      => slot_stb(8),
     wb_ack_o      => slot_ack(8),
-    wb_inta_o =>  slot_interrupt(8)
+    wb_inta_o =>  slot_interrupt(8),
+    id        => slot_id(8)
   );
 
   --
@@ -710,7 +845,8 @@ begin
     wb_cyc_i        => slot_cyc(9),
     wb_stb_i        => slot_stb(9),
     wb_ack_o      => slot_ack(9),
-    wb_inta_o => slot_interrupt(9)
+    wb_inta_o => slot_interrupt(9),
+    id        => slot_id(9)
   );
 
   --
@@ -728,7 +864,8 @@ begin
     wb_cyc_i        => slot_cyc(10),
     wb_stb_i        => slot_stb(10),
     wb_ack_o      => slot_ack(10),
-    wb_inta_o => slot_interrupt(10)
+    wb_inta_o => slot_interrupt(10),
+    id        => slot_id(10)
   );
 
   --
@@ -746,7 +883,8 @@ begin
     wb_cyc_i        => slot_cyc(11),
     wb_stb_i        => slot_stb(11),
     wb_ack_o      => slot_ack(11),
-    wb_inta_o => slot_interrupt(11)
+    wb_inta_o => slot_interrupt(11),
+    id        => slot_id(11)
   );
 
   --
@@ -764,7 +902,8 @@ begin
     wb_cyc_i        => slot_cyc(12),
     wb_stb_i        => slot_stb(12),
     wb_ack_o      => slot_ack(12),
-    wb_inta_o => slot_interrupt(12)
+    wb_inta_o => slot_interrupt(12),
+    id        => slot_id(12)
   );
 
   --
@@ -782,7 +921,8 @@ begin
     wb_cyc_i        => slot_cyc(13),
     wb_stb_i        => slot_stb(13),
     wb_ack_o      => slot_ack(13),
-    wb_inta_o => slot_interrupt(13)
+    wb_inta_o => slot_interrupt(13),
+    id        => slot_id(13)
   );
 
   --
@@ -800,7 +940,8 @@ begin
     wb_cyc_i        => slot_cyc(14),
     wb_stb_i        => slot_stb(14),
     wb_ack_o      => slot_ack(14),
-    wb_inta_o => slot_interrupt(14)
+    wb_inta_o => slot_interrupt(14),
+    id        => slot_id(14)
   );
 
   --
@@ -818,7 +959,8 @@ begin
     wb_cyc_i        => slot_cyc(15),
     wb_stb_i        => slot_stb(15),
     wb_ack_o      => slot_ack(15),
-    wb_inta_o => slot_interrupt(15)
+    wb_inta_o => slot_interrupt(15),
+    id        => slot_id(15)
   );
 
     gpio_spp_data(3) <= sigmadelta_spp_data(0); -- PPS4 : SIGMADELTA DATA

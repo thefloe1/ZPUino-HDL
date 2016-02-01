@@ -27,6 +27,7 @@
 #include "transport.h"
 #include "programmer.h"
 #include <unistd.h>
+#include <math.h>
 #include "boards.h"
 
 #ifdef __linux__
@@ -50,11 +51,13 @@ static char *extradata=NULL;
 static char *serialport=NULL;
 static int is_simulator=0;
 static int only_read=0;
+static int verify=0;
 static int ignore_limit=0;
 static int upload_only=0;
 static int user_offset=-1;
 static speed_t serial_speed = DEFAULT_SPEED;
-static unsigned int serial_speed_int = DEFAULT_SPEED_INT;
+static speed_t initial_serial_speed = DEFAULT_INITIAL_SPEED;
+static unsigned int serial_speed_int = 0;
 static int dry_run = 0;
 static int serial_reset = 0;
 
@@ -79,17 +82,27 @@ unsigned short get_programmer_version()
 
 int parse_arguments(int argc,char **const argv)
 {
+	unsigned spd;
 	int p;
+
 	while (1) {
-		switch ((p=getopt(argc,argv,"RDvb:d:re:o:ls:U"))) {
+            switch ((p=getopt(argc,argv,"RDvtb:d:re:o:ls:S:U"))) {
 		case '?':
 			return -1;
 		case 'v':
 			verbose++;
 			break;
+		case 't':
+			verify=1;
+			break;
 		case 's':
 			serial_speed_int = atoi(optarg);
 			if (conn_parse_speed(serial_speed_int,&serial_speed)<0)
+				return -1;
+			break;
+		case 'S':
+			spd = atoi(optarg);
+			if (conn_parse_speed(spd,&initial_serial_speed)<0)
 				return -1;
 			break;
 		case 'b':
@@ -127,19 +140,35 @@ int parse_arguments(int argc,char **const argv)
 	}
 }
 
+void comms_error()
+{
+	fprintf(stderr,"Cannot get programmer version, aborting\n");
+	fprintf(stderr,"\nCould not contact ZPUino embedded programmer.\n");
+	fprintf(stderr,"The more common reasons for this are:\n\n");
+	fprintf(stderr,"a) You are not specifying the correct port. The port currently selected is '%s'\n",
+		serialport);
+	fprintf(stderr,"b) The board FPGA is not programmed with a valid ZPUino bitfile.\n");
+	fprintf(stderr,"c) The board is properly not powered.\n");
+	fprintf(stderr,"\nPlease review all of above, if problem persists please contact support.\n");
+
+}
+
 int help(char *name)
 {
+	printf("This is ZPUino programmer, version " VERSION "\n\n");
 	printf("Usage: %s -d <serialdevice> [OPTIONS]\n",name);
 	printf("\nOptions:\n");
 	printf("  -r\t\tPerform only sector read (use with -o)\n");
 	printf("  -D\t\tDry-run. Don't actually do anything\n");
 	printf("  -o offset\tUse specified offset within flash\n");
 	printf("  -b binfile\tBinary file to program\n");
-    printf("  -e datafile\tData file to program after binary\n");
+	printf("  -e datafile\tData file to program after binary\n");
 	printf("  -l\t\tIgnore programming limit sent by bootloader\n");
 	printf("  -R\t\tPerform serial reset before programming\n");
-    printf("  -U\t\tUpload only, do not program flash\n");
-	printf("  -s speed\tUse specified serial port speed (default: 1000000)\n");
+	printf("  -U\t\tUpload only, do not program flash\n");
+	printf("  -t\t\tTest/verify flash after programming\n");
+        printf("  -s speed\tUse specified serial port speed (default: 1000000, auto fallback)\n");
+        printf("  -S speed\tUse specified initial serial port speed (default: 115200)\n");
 	printf("  -v\t\tIncrease verbosity\n");
 	return -1;
 }
@@ -156,19 +185,53 @@ int set_baudrate(connection_t conn, unsigned int baud_int, unsigned int freq)
 	int retries = 30;
 	speed_t speed;
 
-	divider = ((freq/baud_int)/16)-1;
+        if (baud_int==0) {
+            /* Automatic baud rate selection */
+            unsigned int *baudrates = conn_get_baudrates();
+            while (*baudrates) {
+                baud_int = *baudrates;
+                divider = ((freq/baud_int)/16)-1;
+                unsigned int real_baud =  (freq/16)/(divider+1);
+                unsigned int real_baud2 =  (freq/16)/(divider+2);
+
+                /* Check error */
+                double error = fabs(100.0 - (double)baud_int/((double)real_baud/100.0));
+                double error2 = fabs(100.0 - (double)baud_int/((double)real_baud2/100.0));
+
+                if (error<3.0) {
+                    printf("Using baudrate %d (error %f%%)\n", baud_int, error);
+                    break;
+                } else if (error2<3.0) {
+                    divider++;
+                    printf("Using baudrate %d (error %f%%)\n", baud_int, error2);
+                    break;
+                } else {
+                    if (verbose>2) {
+                        printf("Skipping baudrate %d: error is %f%% %f%% (%d %d)\n", baud_int, error,error2,
+                               real_baud, real_baud2);
+                    }
+                }
+                baudrates++;
+            }
+        } else {
+            /* TODO: also do computation based on error here */
+            divider = ((freq/baud_int)/16)-1;
+        }
+
 	txbuf[0] = divider>>24;
 	txbuf[1] = divider>>16;
 	txbuf[2] = divider>>8;
-    txbuf[3] = divider;
-	if (verbose>1) {
+        txbuf[3] = divider;
+
+
+        if (verbose>1) {
 		printf("Settting baudrate divider to %u\n",divider);
 	}
-	b = sendreceivecommand(conn,BOOTLOADER_CMD_SETBAUDRATE, txbuf,4,300);
+	b = sendreceivecommand(conn,BOOTLOADER_CMD_SETBAUDRATE, txbuf,4,500);
 	if (b)
 		buffer_free(b);
 
-    conn_parse_speed(baud_int,&speed);
+        conn_parse_speed(baud_int,&speed);
 	conn_set_speed(conn, speed);
 
 	while (retries>0) {
@@ -177,7 +240,7 @@ int set_baudrate(connection_t conn, unsigned int baud_int, unsigned int freq)
 		if (verbose>2) {
 			printf("Connecting at new speed (%u)...\n",baud_int);
 		}
-		b = sendreceivecommand(conn,BOOTLOADER_CMD_VERSION,NULL,0,200);
+		b = sendreceivecommand(conn,BOOTLOADER_CMD_VERSION,NULL,0,500);
 		if (b)
 			break;
 		retries--;
@@ -288,7 +351,7 @@ int open_device(char *device,connection_t *conn)
 	if (is_simulator)
 		return open_simulator_device(device,conn);
 	else
-		return conn_open(device,serial_speed,conn);
+		return conn_open(device,initial_serial_speed,conn);
 }
 
 
@@ -635,7 +698,7 @@ int main(int argc, char **argv)
 		if (verbose>2) {
 			printf("Connecting...\n");
 		}
-		b = sendreceivecommand(conn,BOOTLOADER_CMD_VERSION,NULL,0,200);
+		b = sendreceivecommand(conn,BOOTLOADER_CMD_VERSION,NULL,0,500);
 		if (b)
 			break;
 		retries--;
@@ -690,7 +753,7 @@ int main(int argc, char **argv)
 			printf("Board: %s @ %u Hz (0x%08x)\n", boardname, freq, board);
 		}
 	} else {
-		fprintf(stderr,"Cannot get programmer version, aborting\n");
+		comms_error();
 		conn_close(conn);
 		return -1;
 	}
@@ -865,8 +928,13 @@ int main(int argc, char **argv)
 		saddr++;
 	}
 
-	if (verbose>0)
-		printf("\ndone. Verifying...\n");
+	if (verbose>0) {
+		if (verify)
+			printf("\ndone. Verifying...\n");
+		else
+			printf("\ndone.\n");
+
+	}
 
 	pages = size_bytes/flash->pagesize;
 	sptr = buf;
@@ -875,7 +943,7 @@ int main(int argc, char **argv)
 	if (dry_run) {
 		if (verbose>0)
 			printf("Skipping verification due to dry run\n");
-	} else {
+	} else if (verify) {
 		while (pages--) {
 			if (verbose>0) {
 				printf("Verifying page %d at 0x%08x...\r",saddr, saddr * flash->pagesize);

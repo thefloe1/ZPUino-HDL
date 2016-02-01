@@ -8,15 +8,11 @@
 //#define BOOT_IMMEDIATLY
 
 #define BOOTLOADER_SIZE 0x1000
-#define STACKTOP (BOARD_MEMORYSIZE - 0x8)
 
 #ifdef SIMULATION
-# define SPICODESIZE 0x1000
 # define FPGA_SS_B 40
 # undef SPI_FLASH_SEL_PIN
 # define SPI_FLASH_SEL_PIN FPGA_SS_B
-#else
-# define SPICODESIZE (BOARD_MEMORYSIZE - BOOTLOADER_SIZE - 128)
 #endif
 #define VERSION_HIGH 0x01
 #define VERSION_LOW  0x09
@@ -49,7 +45,7 @@
 
 #define BDATA /*__attribute__((section(".bdata")))*/
 
-extern "C" void (*ivector)(void);
+extern "C" void (*ivector)(int);
 extern "C" void *bootloaderdata;
 
 static BDATA int inprogrammode;
@@ -64,15 +60,15 @@ struct bootloader_data_t {
 
 struct bootloader_data_t bdata BDATA;
 
-const unsigned char vstring[] = {
+unsigned char vstring[] = {
 	VERSION_HIGH,
 	VERSION_LOW,
 	SPIOFFSET>>16,
 	SPIOFFSET>>8,
 	SPIOFFSET&0xff,
-	SPICODESIZE>>16,
-	SPICODESIZE>>8,
-	SPICODESIZE&0xff,
+	0,
+	0,
+	0,
 	CLK_FREQ >> 24,
 	CLK_FREQ >> 16,
 	CLK_FREQ >> 8,
@@ -80,11 +76,16 @@ const unsigned char vstring[] = {
 	BOARD_ID >> 24,
 	BOARD_ID >> 16,
 	BOARD_ID >> 8,
-	BOARD_ID
+        BOARD_ID,
+        0,
+        0,
+        0,
+        0  /* Memory top, to pass on to application */
 };
 
 
 static void outbyte(int);
+extern "C" void _zpu_interrupt(int);
 
 void flush()
 {
@@ -165,7 +166,7 @@ void finishSend()
 	outbyte(HDLC_frameFlag);
 }
 
-unsigned int inbyte()
+static unsigned int inbyte()
 {
 #ifdef BOOT_IMMEDIATLY
 		spi_copy();
@@ -196,7 +197,7 @@ unsigned int inbyte()
 #endif
 }
 
-void enableTimer()
+static void enableTimer()
 {
 #ifdef BOOT_IMMEDIATLY
 	return; // TEST
@@ -274,14 +275,14 @@ static inline unsigned int spiread(register_t base)
 	return *base;
 }
 
-extern "C" void start()
+extern "C" void __attribute__((noreturn)) start()
 {
-	ivector = (void (*)(void))0x1010;
+	ivector = (void (*)(int))0x1010;
 	bootloaderdata = &bdata;
-    start_sketch();
+	start_sketch();
 }
 
-unsigned start_read_size(register_t spidata)
+static unsigned start_read_size(register_t spidata)
 {
 	spiwrite(spidata,0x0B);
 	spiwrite(spidata+4,SPIOFFSET);
@@ -326,14 +327,19 @@ extern "C" void __attribute__((noreturn)) spi_copy_impl()
 	bdata.vstring=vstring;
 	spiwrite(spidata,0);
 	spiwrite(spidata,0);
-	sketchcrc= spiread(spidata) & 0xffff;
-
-	if (sketchsize>SPICODESIZE) {
+        sketchcrc= spiread(spidata) & 0xffff;
+#if 0
+        unsigned spicodesize = (unsigned)vstring[5]<<16 +
+            (unsigned)vstring[6]<<8 +
+            (unsigned)vstring[7];
+	if (sketchsize>spicodesize) {
 #ifdef VERBOSE_LOADER
-		printstring("SLK");
-		//printhexbyte((sketchsize>>8)&0xff);
-		//printhexbyte((sketchsize)&0xff);
-		printstring("\r\n");
+            printstring("SLK ");
+            printhex(spicodesize);
+            printhex(sketchsize);;
+            //printhexbyte((sketchsize>>8)&0xff);
+            //printhexbyte((sketchsize)&0xff);
+            printstring("\r\n");
 #endif
 #ifdef __ZPUINO_NEXYS3__
 		digitalWrite(FPGA_LED_2, HIGH);
@@ -341,6 +347,7 @@ extern "C" void __attribute__((noreturn)) spi_copy_impl()
 
 		while(1) {}
 	}
+#endif
 
 	//CRC16ACC=0xFFFF;
 	REGISTER(crc16base,ROFF_CRC16ACC) = 0xffff;
@@ -403,10 +410,10 @@ extern "C" void __attribute__((noreturn)) spi_copy_impl()
 	while (1) {}
 }
 
-
-extern "C" void _zpu_interrupt()
+extern "C" void _zpu_interrupt(int line)
 {
 	milisseconds++;
+//	outbyte('I');
 	TMR0CTL &= ~(BIT(TCTLIF));
 }
 
@@ -429,10 +436,11 @@ static int spi_read_status()
 	register_t spidata = &SPIDATA; // Ensure this stays in stack
 
 	spi_enable();
-
+#if 0
 	if (is_atmel_flash())
 		spiwrite(spidata,0x57);
 	else
+#endif
 		spiwrite(spidata,0x05);
 
 	spiwrite(spidata,0x00);
@@ -447,12 +455,6 @@ static unsigned int spi_read_id()
 	register_t spidata = &SPIDATA; // Ensure this stays in stack
 
 	spi_enable();
-    /*
-	spiwrite(spidata,0x9F);
-	spiwrite(spidata,0x00);
-	spiwrite(spidata,0x00);
-	spiwrite(spidata,0x00);
-	*/
 	spiwrite(spidata+6, 0x9f000000);
 	ret = spiread(spidata);
 	spi_disable(spidata);
@@ -539,7 +541,6 @@ static void cmd_sst_aai_program(unsigned char *buffer)
 	unsigned int txcount;
 	register_t spidata = &SPIDATA; // Ensure this stays in stack
 
-
 #ifdef __SST_FLASH__
 
 	// buffer[1-2] is number of TX bytes
@@ -584,6 +585,7 @@ static void cmd_sst_aai_program(unsigned char *buffer)
 	sendByte(REPLY(BOOTLOADER_CMD_SSTAAIPROGRAM));
 	finishSend();
 #endif
+
 }
 
 static void cmd_set_baudrate(unsigned char *buffer)
@@ -767,7 +769,50 @@ inline void configure_pins()
 }
 #endif
 
-#ifdef __ZPUINO_PAPILIO_PLUS__
+#ifdef __ZPUINO_XULA2__
+inline void configure_pins()
+{
+	pinModePPS(FPGA_PIN_FLASHCS,LOW);
+	pinMode(FPGA_PIN_FLASHCS, OUTPUT);
+	pinModePPS(FPGA_PIN_SDCS,LOW);
+        pinMode(FPGA_PIN_SDCS, OUTPUT);
+        digitalWrite(FPGA_PIN_SDCS, HIGH);
+}
+#endif
+
+#ifdef __ZPUINO_EMS11__
+inline void configure_pins()
+{
+	pinModePPS(FPGA_PIN_FLASHCS,LOW);
+	pinMode(FPGA_PIN_FLASHCS, OUTPUT);
+}
+#endif
+
+#ifdef __ZPUINO_PIPISTRELLO__
+inline void configure_pins()
+{
+	pinModePPS(FPGA_PIN_FLASHCS,LOW);
+	pinMode(FPGA_PIN_FLASHCS, OUTPUT);
+}
+#endif
+
+#ifdef __ZPUINO_SATURN__
+inline void configure_pins()
+{
+	pinModePPS(FPGA_PIN_FLASHCS,LOW);
+	pinMode(FPGA_PIN_FLASHCS, OUTPUT);
+}
+#endif
+
+#ifdef __ZPUINO_MIMASV2__
+inline void configure_pins()
+{
+	pinModePPS(FPGA_PIN_FLASHCS,LOW);
+	pinMode(FPGA_PIN_FLASHCS, OUTPUT);
+}
+#endif
+
+#if defined( __ZPUINO_PAPILIO_PLUS__ ) || defined( __ZPUINO_PAPILIO_PRO__ ) || defined ( __ZPUINO_PAPILIO_DUO__ )
 inline void configure_pins()
 {
 	pinModePPS(FPGA_PIN_FLASHCS,LOW);
@@ -792,10 +837,11 @@ inline void configure_pins()
 
 extern "C" int _syscall(int *foo, int ID, ...);
 extern "C" unsigned _bfunctions[];
+extern "C" const unsigned _bfunctionsconst[];
 
 extern "C" void udivmodsi4(); /* Just need it's address */
 
-extern "C" int loadsketch(unsigned offset, unsigned size)
+extern "C" void loadsketch(unsigned offset, unsigned size)
 {
 	register_t spidata = &SPIDATA; // Ensure this stays in stack
 	unsigned crc16base = CRC16BASE;
@@ -803,10 +849,10 @@ extern "C" int loadsketch(unsigned offset, unsigned size)
 	spi_disable(spidata);
 	spi_enable();
 	spiwrite(spidata,0x0b);
-    spiwrite(spidata+4,offset);
+	spiwrite(spidata+4,offset);
 	spiwrite(spidata,0x0);
 	copy_sketch(spidata, crc16base, size, target);
-    spi_disable(spidata);
+	spi_disable(spidata);
 	flush();
 	start();
 }
@@ -816,21 +862,33 @@ extern "C" int main(int argc,char**argv)
 	inprogrammode = 0;
 	milisseconds = 0;
 	unsigned bufferpos = 0;
-    unsigned char buffer[256 + 32];
+	unsigned char buffer[256 + 32];
 	int syncSeen;
 	int unescaping;
+        unsigned memtop = (unsigned)argv;
+        unsigned sketchsize = memtop - (BOOTLOADER_SIZE+128);
+        /* Patch data */
+        vstring[5] = sketchsize>>16;
+        vstring[6] = sketchsize>>8;
+        vstring[7] = sketchsize;
+        vstring[16] = memtop>>24;
+        vstring[16] = memtop>>16;
+        vstring[16] = memtop>>8;
+        vstring[16] = memtop;
 
-	ivector = &_zpu_interrupt;
+        ivector = &_zpu_interrupt;
 
-	UARTCTL = BAUDRATEGEN(115200) | BIT(UARTEN);
+        UARTCTL = BAUDRATEGEN(115200) | BIT(UARTEN);
 
 	configure_pins();
 
+#if 0//ndef VERBOSE_LOADER
 	_bfunctions[0] = (unsigned)&udivmodsi4;
 	_bfunctions[1] = (unsigned)&memcpy;
 	_bfunctions[2] = (unsigned)&memset;
 	_bfunctions[3] = (unsigned)&strcmp;
 	_bfunctions[4] = (unsigned)&loadsketch;
+#endif
 
 	INTRMASK = BIT(INTRLINE_TIMER0); // Enable Timer0 interrupt
 	INTRCTL=1;
@@ -842,11 +900,11 @@ extern "C" int main(int argc,char**argv)
 
 	enableTimer();
 
-	CRC16POLY = 0x8408; // CRC16-CCITT
+	CRC16POLY = 0xFFFF8408; // CRC16-CCITT
 	SPICTL=BIT(SPICPOL)|BOARD_SPI_DIVIDER|BIT(SPISRE)|BIT(SPIEN)|BIT(SPIBLOCK);
 	// Reset flash
 	spi_reset(&SPIDATA);
-#ifdef __ZPUINO_PAPILIO_ONE__
+#ifdef __SST_FLASH__
 	spi_enable();
 	spiwrite(0x4); // Disable WREN for SST flash
 	spi_disable(&SPIDATA);
@@ -880,7 +938,7 @@ extern "C" int main(int argc,char**argv)
 		} else {
 			if (i==HDLC_frameFlag) {
 				bufferpos=0;
-				CRC16ACC=0xFFFF;
+				CRC16ACC=0xFFFFFFFF;
 				syncSeen=1;
 				unescaping=0;
 			} else {

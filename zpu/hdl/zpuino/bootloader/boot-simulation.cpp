@@ -52,12 +52,10 @@ void __attribute__((noreturn)) spi_copy()
 #endif
 //	UARTCTL &= ~(BIT(UARTEN));
 
-	__asm__("im %0\n"
+	__asm__("im -8\n"
 			"popsp\n"
 			"im spi_copy_impl\n"
 			"poppc\n"
-			:
-			:"i"(STACKTOP)
 		   );
 	while (1) {}
 }
@@ -68,12 +66,11 @@ extern "C" void __attribute__((noreturn)) spi_copy_impl()
 
 	bootloaderdata = &bdata;
 
-	__asm__("im %0\n"
+	__asm__("im -8\n"
 			"popsp\n"
 			"im __sketch_start\n"
 			"poppc\n"
-			:
-			: "i" (STACKTOP));
+		   );
 	while(1) {}
 }
 
@@ -139,6 +136,7 @@ unsigned int bytemask[] = { 0xff00000, 0x00ff0000, 0x0000ff00, 0x000000ff };
 
 extern "C" unsigned _bfunctions[];
 extern "C" void udivmodsi4(); /* Just need it's address */
+extern "C" void loadsketch() {}
 
 extern "C" int main(int argc,char**argv)
 {

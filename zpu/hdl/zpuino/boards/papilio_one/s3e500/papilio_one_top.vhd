@@ -42,6 +42,7 @@ use work.zpuinopkg.all;
 use work.zpuino_config.all;
 use work.zpu_config.all;
 use work.pad.all;
+use work.wishbonepkg.all;
 
 library unisim;
 use unisim.vcomponents.all;
@@ -120,6 +121,7 @@ architecture behave of papilio_one_top is
   signal slot_address:  slot_address_type;
   signal slot_ack:   slot_std_logic_type;
   signal slot_interrupt: slot_std_logic_type;
+  signal slot_id:    slot_id_type;
 
   signal spi_enabled:  std_logic;
 
@@ -130,41 +132,25 @@ architecture behave of papilio_one_top is
 
   signal uart_enabled:  std_logic;
 
-  -- SPP signal is one more than GPIO count
-  signal gpio_spp_data: std_logic_vector(zpuino_gpio_count-1 downto 0);
-  signal gpio_spp_read: std_logic_vector(zpuino_gpio_count-1 downto 0);
+  -- SPP signals
 
-  --signal gpio_spp_en: std_logic_vector(zpuino_gpio_count-1 downto 1);
+  signal gpio_spp_data: std_logic_vector(PPSCOUNT_OUT-1 downto 0);
+  signal gpio_spp_read: std_logic_vector(PPSCOUNT_IN-1 downto 0);
+
+  signal ppsout_info_slot: ppsoutinfotype := (others => -1);
+  signal ppsout_info_pin:  ppsoutinfotype;
+  signal ppsin_info_slot: ppsininfotype := (others => -1);
+  signal ppsin_info_pin:  ppsininfotype;
 
   signal timers_interrupt:  std_logic_vector(1 downto 0);
   signal timers_pwm: std_logic_vector(1 downto 0);
 
-  signal ivecs: std_logic_vector(17 downto 0);
-
   signal sigmadelta_spp_en:  std_logic_vector(1 downto 0);
   signal sigmadelta_spp_data:  std_logic_vector(1 downto 0);
-
-  -- For busy-implementation
-  signal addr_save_q: std_logic_vector(maxAddrBitIncIO downto 0);
-  signal write_save_q: std_logic_vector(wordSize-1 downto 0);
-
---  signal io_address: std_logic_vector(maxAddrBitIncIO downto 0);
---  signal io_write: std_logic_vector(wordSize-1 downto 0);
---  signal io_cyc: std_logic;
---  signal io_stb: std_logic;
---  signal io_we: std_logic;
-
---  signal io_device_ack: std_logic;
 
   signal spi_pf_miso: std_logic;
   signal spi_pf_mosi: std_logic;
   signal spi_pf_sck: std_logic;
-
-  signal adc_mosi:  std_logic;
-  signal adc_miso:  std_logic;
-  signal adc_sck:   std_logic;
-  signal adc_seln:  std_logic;
-  signal adc_enabled: std_logic;
 
   signal wb_clk_i: std_logic;
   signal wb_rst_i: std_logic;
@@ -216,6 +202,9 @@ architecture behave of papilio_one_top is
   );
   end component;
 
+  signal ramwbi:  wb_mosi_type;
+  signal ramwbo:  wb_p_miso_type;
+
 begin
 
   wb_clk_i <= sysclk;
@@ -244,7 +233,7 @@ begin
 
 
 
-  zpuino:zpuino_top
+  zpuino: entity work.zpuino_top
     port map (
       clk           => sysclk,
 	 	  rst           => sysrst,
@@ -257,6 +246,13 @@ begin
       slot_address  => slot_address,
       slot_ack      => slot_ack,
       slot_interrupt=> slot_interrupt,
+      slot_id       => slot_id,
+
+      pps_in_slot   => ppsin_info_slot,
+      pps_in_pin    => ppsin_info_pin,
+
+      pps_out_slot => ppsout_info_slot,
+      pps_out_pin  => ppsout_info_pin,
 
       m_wb_dat_o    => open,
       m_wb_dat_i    => (others => 'X'),
@@ -264,7 +260,20 @@ begin
       m_wb_we_i     => '0',
       m_wb_cyc_i    => '0',
       m_wb_stb_i    => '0',
+      m_wb_cti_i    => CTI_CYCLE_CLASSIC,
       m_wb_ack_o    => open,
+
+      wb_ack_i      => ramwbo.ack,
+      wb_stall_i    => ramwbo.stall,
+      wb_dat_i      => ramwbo.dat,
+      wb_dat_o      => ramwbi.dat,
+      wb_adr_o      => ramwbi.adr(maxAddrBit downto 0),
+      wb_cyc_o      => ramwbi.cyc,
+      wb_cti_o      => ramwbi.cti,
+      wb_stb_o      => ramwbi.stb,
+      wb_sel_o      => ramwbi.sel,
+      wb_we_o       => ramwbi.we,
+
 
       dbg_reset     => dbg_reset,
       jtag_data_chain_out => open,--jtag_data_chain_out,
@@ -272,47 +281,19 @@ begin
 
     );
 
---  dbgport: zpuino_debug_jtag
---    port map (
---      jtag_data_chain_in => jtag_data_chain_out,
---      jtag_ctrl_chain_out => jtag_ctrl_chain_in,
 
---      TCK         => TCK,
---      TDI         => TDI,
---      CAPTUREIR   => CAPTUREIR,
---      UPDATEIR    => UPDATEIR,
---      SHIFTIR     => SHIFTIR,
---      CAPTUREDR   => CAPTUREDR,
---      UPDATEDR    => UPDATEDR,
---      SHIFTDR     => SHIFTDR,
---      TLR         => TLR,
+  -- RAM
 
---      TDO_IR      => TDO_IR,
---      TDO_DR      => TDO_DR
- --   );
-
-
---  dbgport_s3e: zpuino_debug_spartan3e
---    port map (
---
---      TCK         => TCK,
---      TDI         => TDI,
---      CAPTUREIR   => CAPTUREIR,
---      UPDATEIR    => UPDATEIR,
---      SHIFTIR     => SHIFTIR,
- --     CAPTUREDR   => CAPTUREDR,
-  --    UPDATEDR    => UPDATEDR,
- --     SHIFTDR     => SHIFTDR,
---      TLR         => TLR,
---
---      TDO_IR      => TDO_IR,
---      TDO_DR      => TDO_DR
---
- --   );
-
-
-
-
+  ram:  entity work.ocram
+    generic map (
+      address_bits => 11
+    )
+    port map (
+      syscon.clk  => wb_clk_i,
+      syscon.rst  => wb_rst_i,
+      wbi         => ramwbi,
+      wbo         => ramwbo
+   );
   --
   --
   -- ----------------  I/O connection to devices --------------------
@@ -320,21 +301,22 @@ begin
   --
 
   --
-  -- IO SLOT 0
+  -- IO SLOT 4
   --
 
-  slot0: zpuino_spi
+  slot4: zpuino_spi
   port map (
-    wb_clk_i       => wb_clk_i,
-	 	wb_rst_i    => wb_rst_i,
-    wb_dat_o      => slot_read(0),
-    wb_dat_i     => slot_write(0),
-    wb_adr_i   => slot_address(0),
-    wb_we_i        => slot_we(0),
-    wb_cyc_i      => slot_cyc(0),
-    wb_stb_i      => slot_stb(0),
-    wb_ack_o      => slot_ack(0),
-    wb_inta_o => slot_interrupt(0),
+    wb_clk_i  => wb_clk_i,
+    wb_rst_i  => wb_rst_i,
+    wb_dat_o  => slot_read(4),
+    wb_dat_i  => slot_write(4),
+    wb_adr_i  => slot_address(4),
+    wb_we_i   => slot_we(4),
+    wb_cyc_i  => slot_cyc(4),
+    wb_stb_i  => slot_stb(4),
+    wb_ack_o  => slot_ack(4),
+    -- Taken by timer controller, wb_inta_o => slot_interrupt(4),
+    id        => slot_id(4),
 
     mosi      => spi_pf_mosi,
     miso      => spi_pf_miso,
@@ -348,17 +330,17 @@ begin
 
   uart_inst: zpuino_uart
   port map (
-    wb_clk_i       => wb_clk_i,
-	 	wb_rst_i    => wb_rst_i,
-    wb_dat_o      => slot_read(1),
-    wb_dat_i     => slot_write(1),
-    wb_adr_i   => slot_address(1),
-    wb_we_i      => slot_we(1),
-    wb_cyc_i       => slot_cyc(1),
-    wb_stb_i       => slot_stb(1),
-    wb_ack_o      => slot_ack(1),
-
+    wb_clk_i  => wb_clk_i,
+    wb_rst_i  => wb_rst_i,
+    wb_dat_o  => slot_read(1),
+    wb_dat_i  => slot_write(1),
+    wb_adr_i  => slot_address(1),
+    wb_we_i   => slot_we(1),
+    wb_cyc_i  => slot_cyc(1),
+    wb_stb_i  => slot_stb(1),
+    wb_ack_o  => slot_ack(1),
     wb_inta_o => slot_interrupt(1),
+    id        => slot_id(1),
 
     enabled   => uart_enabled,
     tx        => tx,
@@ -384,7 +366,7 @@ begin
     wb_stb_i       => slot_stb(2),
     wb_ack_o      => slot_ack(2),
     wb_inta_o => slot_interrupt(2),
-
+    id        => slot_id(2),
     spp_data  => gpio_spp_data,
     spp_read  => gpio_spp_read,
 
@@ -425,14 +407,10 @@ begin
 
     wb_inta_o => slot_interrupt(3), -- We use two interrupt lines
     wb_intb_o => slot_interrupt(4), -- so we borrow intr line from slot 4
-
+    id        => slot_id(3),
     pwm_a_out   => timers_pwm(0 downto 0),
     pwm_b_out   => timers_pwm(1 downto 1)
   );
-
-  --
-  -- IO SLOT 4  - DO NOT USE (it's already mapped to Interrupt Controller)
-  --
 
   --
   -- IO SLOT 5
@@ -450,7 +428,7 @@ begin
     wb_stb_i        => slot_stb(5),
     wb_ack_o      => slot_ack(5),
     wb_inta_o => slot_interrupt(5),
-
+    id        => slot_id(5),
     spp_data  => sigmadelta_spp_data,
     spp_en    => sigmadelta_spp_en,
     sync_in   => '1'
@@ -460,7 +438,7 @@ begin
   -- IO SLOT 6
   --
 
-  slot1: zpuino_spi
+  slot6: zpuino_spi
   port map (
     wb_clk_i       => wb_clk_i,
 	 	wb_rst_i    => wb_rst_i,
@@ -472,10 +450,11 @@ begin
     wb_stb_i        => slot_stb(6),
     wb_ack_o      => slot_ack(6),
     wb_inta_o => slot_interrupt(6),
+    id        => slot_id(6),
 
-    mosi      => spi2_mosi,
-    miso      => spi2_miso,
-    sck       => spi2_sck,
+    mosi      => spi2_mosi, -- PPS OUT PIN 0
+    miso      => spi2_miso, -- PPS IN  PIN 0
+    sck       => spi2_sck,  -- PPS OUT PIN 1
     enabled   => open
   );
 
@@ -496,7 +475,8 @@ begin
     wb_cyc_i        => slot_cyc(7),
     wb_stb_i        => slot_stb(7),
     wb_ack_o      => slot_ack(7),
-    wb_inta_o => slot_interrupt(7)
+    wb_inta_o => slot_interrupt(7),
+    id        => slot_id(7)
   );
 
   --
@@ -514,7 +494,8 @@ begin
     wb_cyc_i      => slot_cyc(8),
     wb_stb_i      => slot_stb(8),
     wb_ack_o      => slot_ack(8),
-    wb_inta_o =>  slot_interrupt(8)
+    wb_inta_o =>  slot_interrupt(8),
+    id        => slot_id(8)
   );
 
   --
@@ -532,7 +513,8 @@ begin
     wb_cyc_i        => slot_cyc(9),
     wb_stb_i        => slot_stb(9),
     wb_ack_o      => slot_ack(9),
-    wb_inta_o => slot_interrupt(9)
+    wb_inta_o => slot_interrupt(9),
+    id        => slot_id(9)
   );
 
   --
@@ -550,7 +532,8 @@ begin
     wb_cyc_i        => slot_cyc(10),
     wb_stb_i        => slot_stb(10),
     wb_ack_o      => slot_ack(10),
-    wb_inta_o => slot_interrupt(10)
+    wb_inta_o => slot_interrupt(10),
+    id        => slot_id(10)
   );
 
   --
@@ -573,7 +556,7 @@ begin
     wb_ack_o      => slot_ack(11),
 
     wb_inta_o => slot_interrupt(11),
-
+    id        => slot_id(11),
     tx        => uart2_tx,
     rx        => uart2_rx
   );
@@ -593,7 +576,8 @@ begin
     wb_cyc_i        => slot_cyc(12),
     wb_stb_i        => slot_stb(12),
     wb_ack_o      => slot_ack(12),
-    wb_inta_o => slot_interrupt(12)
+    wb_inta_o => slot_interrupt(12),
+    id        => slot_id(12)
   );
 
   --
@@ -611,7 +595,8 @@ begin
     wb_cyc_i        => slot_cyc(13),
     wb_stb_i        => slot_stb(13),
     wb_ack_o      => slot_ack(13),
-    wb_inta_o => slot_interrupt(13)
+    wb_inta_o => slot_interrupt(13),
+    id        => slot_id(13)
   );
 
   --
@@ -629,7 +614,8 @@ begin
     wb_cyc_i        => slot_cyc(14),
     wb_stb_i        => slot_stb(14),
     wb_ack_o      => slot_ack(14),
-    wb_inta_o => slot_interrupt(14)
+    wb_inta_o => slot_interrupt(14),
+    id        => slot_id(14)
   );
 
   --
@@ -647,7 +633,8 @@ begin
     wb_cyc_i        => slot_cyc(15),
     wb_stb_i        => slot_stb(15),
     wb_ack_o      => slot_ack(15),
-    wb_inta_o => slot_interrupt(15)
+    wb_inta_o => slot_interrupt(15),
+    id        => slot_id(15)
   );
 
 
@@ -714,23 +701,59 @@ begin
   ospimosi: OPAD port map ( I => spi_pf_mosi,   PAD => SPI_MOSI );
 
 
+
+
   process(gpio_spp_read,
           sigmadelta_spp_data,
           timers_pwm,
           spi2_mosi,spi2_sck)
   begin
 
+    --
+    -- NOTE NOTE
+    --
+    -- If you add or remove the number of PPS pins, please update the
+    -- constants PPSCOUNT_OUT, PPSCOUNT_IN in zpuino_config.vhd
+    --
+
     gpio_spp_data <= (others => DontCareValue);
 
     gpio_spp_data(0) <= sigmadelta_spp_data(0); -- PPS0 : SIGMADELTA DATA
+    ppsout_info_slot(0) <= 5; -- Slot 5
+    ppsout_info_pin(0) <= 0;  -- PPS OUT pin 0 (Channel 0)
+
     gpio_spp_data(1) <= timers_pwm(0);          -- PPS1 : TIMER0
+    ppsout_info_slot(1) <= 3; -- Slot 3
+    ppsout_info_pin(1) <= 0;  -- PPS OUT pin 0 (TIMER0)
+
     gpio_spp_data(2) <= timers_pwm(1);          -- PPS2 : TIMER1
+    ppsout_info_slot(2) <= 3; -- Slot 3
+    ppsout_info_pin(2) <= 1;  -- PPS OUT pin 0 (TIMER0)
+
     gpio_spp_data(3) <= spi2_mosi;              -- PPS3 : USPI MOSI
+    ppsout_info_slot(3) <= 6; -- Slot 6
+    ppsout_info_pin(3) <= 0;  -- PPS OUT pin 0 (MOSI)
+
     gpio_spp_data(4) <= spi2_sck;               -- PPS4 : USPI SCK
+    ppsout_info_slot(4) <= 6; -- Slot 6
+    ppsout_info_pin(4) <= 1;  -- PPS OUT pin 1 (SCK)
+
     gpio_spp_data(5) <= sigmadelta_spp_data(1); -- PPS5 : SIGMADELTA1 DATA
+    ppsout_info_slot(5) <= 5; -- Slot 5
+    ppsout_info_pin(5) <= 1;  -- PPS OUT pin 0 (Channel 1)
+
     gpio_spp_data(6) <= uart2_tx;               -- PPS6 : UART2 DATA
+    ppsout_info_slot(6) <= 11; -- Slot 11
+    ppsout_info_pin(6) <= 0;  -- PPS OUT pin 0 (UART TX)
+
+
     spi2_miso <= gpio_spp_read(0);              -- PPS0 : USPI MISO
-    uart2_rx <= gpio_spp_read(1);              -- PPS0 : USPI MISO
+    ppsin_info_slot(0) <= 6;                    -- USPI is in slot 6
+    ppsin_info_pin(0) <= 0;                     -- PPS pin of USPI is 0
+
+    uart2_rx <= gpio_spp_read(1);               -- PPS1 : UART RX
+    ppsin_info_slot(1) <= 11;                    -- USPI is in slot 6
+    ppsin_info_pin(1) <= 0;                     -- UART RX
 
   end process;
 

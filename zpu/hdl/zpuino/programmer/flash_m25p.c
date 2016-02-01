@@ -32,6 +32,9 @@ static int m25p_erase_sector(flash_info_t *flash, connection_t conn, unsigned in
 	wbuf[2] = 0; // Rx bytes
 	wbuf[3] = 0; // Tx bytes
 
+	/* Thanks BBenj for finding this bug! We need to shift sector position here ! */
+	sector *= flash->sectorsize;
+
 	wbuf[4] = 0xD8; // Sector erase
 	wbuf[5] = (sector>>16) & 0xff;
 	wbuf[6] = (sector>>8) & 0xff;
@@ -142,6 +145,7 @@ static int m25p_program_page(flash_info_t *flash, connection_t conn, unsigned in
 }
 
 flash_driver_t m25p_flash = {
+        .name          = "micron",
 	.erase_sector  = &m25p_erase_sector,
 	.enable_writes = &m25p_enable_writes,
 	.read_page     = &m25p_read_page,
